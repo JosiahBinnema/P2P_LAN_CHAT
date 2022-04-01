@@ -22,6 +22,10 @@ public class ClientThread extends Thread{
         return String.format("%s (By: %s)", arr[1], arr[0]);
     }
 
+    public BufferedReader getReader() {
+        return reader;
+    }
+
     /**
      * This overridden method of thread reads the data when this class's instance is created and print the message after
         filtering it on the console.
@@ -31,12 +35,14 @@ public class ClientThread extends Thread{
         boolean flag = true;
         while (flag){
             try {
-                String msg = reader.readLine();
-                System.out.println("$ " + filterMessage(msg));
+                String msg = reader.readLine().trim();
+                if(!msg.equals("")){
+                    System.out.println("$ " + filterMessage(msg));
+                }
             } catch (IOException e) {
                 flag = false;
-                interrupt();
             }
         }
     }
 }
+

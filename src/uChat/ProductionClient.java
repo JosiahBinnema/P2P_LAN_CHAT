@@ -1,14 +1,15 @@
 package uChat;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.Socket;
-import java.util.ArrayList;
-import java.util.List;
-
+import java.util.*;
 import static java.lang.System.exit;
 
 public class ProductionClient {
+    Stack<String> messages = new Stack<>();
+
     public static void main(String[] args) {
         try {
             BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
@@ -31,16 +32,6 @@ public class ProductionClient {
     }
 
     /**
-     * DOESN'T WORK.
-     * needs to be finished
-     * tells all clients in the list to update their list of clients
-     */
-    private void syncPorts(List<Integer> ports, ServerThread serverThread) {
-        serverThread.sendMessage("You need to update your list of clients!" + ports.toString());
-        System.out.println("told them to update their porst! " + ports.toString());
-    }
-
-    /**
      * listens to each active port with a lower value than this one. and starts chatting with them.
      */
     public List<Integer> updateClients(BufferedReader reader, String username, ServerThread serverThread, int startPort) throws IOException {
@@ -51,7 +42,9 @@ public class ProductionClient {
             try {
                 System.out.println("listening to localhost:" + i);
                 Socket clientSocket = new Socket("localhost", i);
-                new ClientThread(clientSocket).start();
+                ClientThread clientThread = new ClientThread(clientSocket);
+                clientThread.start();
+                this.messages.add(clientThread.getReader().readLine());
                 ports.add(i);
             } catch (IOException e) {
                 System.err.println("$ Bad Network with" + "localhost:" + i + "!");
@@ -59,8 +52,7 @@ public class ProductionClient {
             i--;
         }
         chatWithClients(reader, username, serverThread);
-        System.out.println("updated clients");
-        syncPorts(ports, serverThread);
+        System.out.println("Connected clients");
         return ports;
     }
     /**
@@ -80,39 +72,27 @@ public class ProductionClient {
         return -1;
     }
 
-
     /**
-     * OUTDATED
-     * it's binding all the clients with this client connected with the same hosting port or in the same chat room,
-        including this client, and then starting the chat with them.
-     Required: somehow make the input better than just writing :, & symbols between the names.
+     * All available ports in the localhost
      */
-    public void updateToClients(BufferedReader reader, String user, ServerThread serverThread) throws IOException {
-        System.out.println("<- Enter #s to skip the need to write the hostNames and hostingPorts!");
-        System.out.print("<- Enter multiple hostNames and hostingPorts (hostName:hostingPort&hostName:hostingPort....): \n");
+    public List<Integer> findAvailablePorts(ServerThread serverThread){
+        int myPort = serverThread.getPort(), i = 6000, flag = 1;
+        List<Integer> availablePorts = new ArrayList<>();
 
-
-
-        String line = reader.readLine();
-        String[] userArray = line.split("&");
-
-        if(!line.toLowerCase().trim().equals("#s")) {
-            for (int i = 0; i < userArray.length; i++) {
-                String[] hostingPorts = userArray[i].split(":");
-                Socket clientSocket = null;
-                try {
-                    System.out.println(hostingPorts[0] + Integer.parseInt(hostingPorts[1]));
-                    clientSocket = new Socket(hostingPorts[0], Integer.parseInt(hostingPorts[1]));
-                    new ClientThread(clientSocket).start();
-                } catch (IOException e) {
-                    System.err.println("$ Bad Network with" + hostingPorts[0] + hostingPorts[1] + "!");
+        while (flag == 1){
+            try {
+                Socket socket = new Socket("localhost", i);
+                if (i != myPort){
+                    availablePorts.add(i);
                 }
+            }catch (IOException e){
+                flag = -1;
             }
+            i++;
         }
 
-        chatWithClients(reader, user, serverThread);
+        return availablePorts;
     }
-
 
     /**
      * it's binding all the clients with this client connected with the same hosting port or in the same chat room
@@ -132,6 +112,9 @@ public class ProductionClient {
                 }
                 else{
                     serverThread.sendMessage(user + "%--%" + msgToSend);
+                    this.messages.add(user + "%--%" + msgToSend);
+                    // this is to see if it's printing all available ports or not
+                    System.out.println(findAvailablePorts(serverThread));
                 }
             }
             exit(0);
