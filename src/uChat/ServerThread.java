@@ -2,37 +2,37 @@ package uChat;
 
 import java.io.IOException;
 import java.net.ServerSocket;
+import java.net.Socket;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Stack;
+import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class ServerThread extends Thread{
-    private final ServerSocket serverSocket;
-    private final LinkedList<ChildThread> childThreadList = new LinkedList<>();
     private final int port;
     private List<Integer> portList;
+    public int getPort() {
+        return this.port;
+    }
+    private final ServerSocket serverSocket;
+    private final LinkedList<ChildThread> childThread = new LinkedList<>();
+
 
     public ServerThread(int portNumber) throws IOException {
         this.port = portNumber;
         this.serverSocket = new ServerSocket(portNumber);
     }
 
-    public int getPort() {
-        return this.port;
-    }
-
-    public void setPortList(List<Integer> portList) {
-        this.portList = portList;
-    }
 
     /**
-     * This is simply sending the message using ChildThread class's method getWriter.
+     * This is simply sending the message using serverThread class's method getWriter.
      */
-    public void sendMessage(String msg){
-        for (int i = 0; i < childThreadList.size(); i++){
-            childThreadList.get(i).getWriter().write(msg);
-            childThreadList.get(i).getWriter().write("\n");
-            childThreadList.get(i).getWriter().flush();
+    public void sendMessage(String msg) throws InterruptedException {
+        for (int i = 0; i < childThread.size(); i++){
+            Thread.sleep(ThreadLocalRandom.current().nextInt(1000, 3000)); //randomness here
+            childThread.get(i).getWriter().write(msg);
+            childThread.get(i).getWriter().write("\n");
+            childThread.get(i).getWriter().flush();
         }
     }
 
@@ -45,7 +45,7 @@ public class ServerThread extends Thread{
         try {
             while (true) {
                 ChildThread childThread = new ChildThread(serverSocket.accept(), this);
-                this.childThreadList.add(childThread);
+                this.childThread.add(childThread);
                 childThread.start();
             }
         }catch (IOException e){
@@ -54,9 +54,9 @@ public class ServerThread extends Thread{
     }
 
     /**
-     * return the list.
+     * getter for the list.
      */
-    public LinkedList<ChildThread> getChildThreadList() {
-        return childThreadList;
+    public LinkedList<ChildThread> getServerThreadThread() {
+        return childThread;
     }
 }

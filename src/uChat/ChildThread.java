@@ -7,8 +7,8 @@ import java.io.PrintWriter;
 import java.net.Socket;
 
 public class ChildThread extends Thread{
-    private final ServerThread serverThread;
-    private final Socket childThreadSocket;
+    private ServerThread serverThread;
+    private Socket childThreadSocket;
     private PrintWriter writer;
 
     /**
@@ -18,6 +18,10 @@ public class ChildThread extends Thread{
     public ChildThread(Socket socket, ServerThread serverThread){
         this.serverThread = serverThread;
         this.childThreadSocket = socket;
+    }
+
+    public int getPort(){
+        return childThreadSocket.getPort();
     }
 
     /**
@@ -34,7 +38,9 @@ public class ChildThread extends Thread{
                 this.serverThread.sendMessage(reader.readLine());
             }
         } catch (IOException e) {
-            this.serverThread.getChildThreadList().remove(this);
+            this.serverThread.getServerThreadThread().remove(this);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
     }
 
@@ -44,4 +50,6 @@ public class ChildThread extends Thread{
     public PrintWriter getWriter() {
         return writer;
     }
+
+
 }

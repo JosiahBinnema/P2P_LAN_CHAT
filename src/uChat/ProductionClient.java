@@ -1,15 +1,16 @@
 package uChat;
-
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.Socket;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+
 import static java.lang.System.exit;
 
 public class ProductionClient {
-    Stack<String> messages = new Stack<>();
-
+    public static int startPort = 6000;
+    public static int endPort = 6010;
     public static void main(String[] args) {
         try {
             BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
@@ -17,44 +18,55 @@ public class ProductionClient {
             String username = reader.readLine();
 
             //find a free port and find other clients' ports
-            int startPort = 6000;
-            int endPort = 6999;
+
             int port = findFreePort(startPort, endPort);
             ServerThread serverThread = new ServerThread(port);
             serverThread.start();
             System.out.println("you're on port " + port);
-
+            List<Integer> ports = new ArrayList<>();
             //list of ports I'm listening to
-            List<Integer> ports = new ProductionClient().updateClients(reader, username, serverThread, startPort);
+            new ProductionClient().updateClients(reader, username, serverThread, startPort, endPort, true, ports);
         }catch (IOException io){
             io.printStackTrace();
         }
     }
 
-    /**
-     * listens to each active port with a lower value than this one. and starts chatting with them.
-     */
-    public List<Integer> updateClients(BufferedReader reader, String username, ServerThread serverThread, int startPort) throws IOException {
-        int myPort = serverThread.getPort();
-        int i = myPort - 1;
-        List<Integer> ports = new ArrayList<>();
-        while (i >= startPort) {
-            try {
-                System.out.println("listening to localhost:" + i);
-                Socket clientSocket = new Socket("localhost", i);
-                ClientThread clientThread = new ClientThread(clientSocket);
-                clientThread.start();
-                this.messages.add(clientThread.getReader().readLine());
-                ports.add(i);
-            } catch (IOException e) {
-                System.err.println("$ Bad Network with" + "localhost:" + i + "!");
-            }
-            i--;
+    public void printConnections(List<ChildThread> ports) {
+        System.out.println("$ Connected to: ");
+        for (ChildThread port : ports) {
+            System.out.println("$ " + port.getPort());
         }
-        chatWithClients(reader, username, serverThread);
-        System.out.println("Connected clients");
+    }
+
+    /**
+     * updates the list of clients this client is listening to
+     */
+    public List<Integer> updateClients(BufferedReader reader, String username, ServerThread serverThread,
+                                       int startPort, int endPort, boolean isFirst, List<Integer> ports) throws IOException {
+        int myPort = serverThread.getPort();
+        int i = startPort;
+        System.out.println("Searching for clients. Please wait...");
+        while (i <= endPort) {
+            if (i != myPort && !ports.contains(i)) {
+                try {
+                    Socket clientSocket = new Socket("localhost", i);
+                    new ClientThread(clientSocket).start();
+                    ports.add(i);
+
+                    System.out.println("Client found on port " + i + "!");
+                } catch (IOException e) {
+                    ports.remove((Integer) i);
+                }
+            }
+            i++;
+        }
+        System.out.println("$ Found " + ports.size() + " clients!");
+        if (isFirst) {
+            chatWithClients(reader, username, serverThread, ports);
+        }
         return ports;
     }
+
     /**
      * find a free port on the network (starts at 6000)
      */
@@ -73,33 +85,11 @@ public class ProductionClient {
     }
 
     /**
-     * All available ports in the localhost
-     */
-    public List<Integer> findAvailablePorts(ServerThread serverThread){
-        int myPort = serverThread.getPort(), i = 6000, flag = 1;
-        List<Integer> availablePorts = new ArrayList<>();
-
-        while (flag == 1){
-            try {
-                Socket socket = new Socket("localhost", i);
-                if (i != myPort){
-                    availablePorts.add(i);
-                }
-            }catch (IOException e){
-                flag = -1;
-            }
-            i++;
-        }
-
-        return availablePorts;
-    }
-
-    /**
      * it's binding all the clients with this client connected with the same hosting port or in the same chat room
      */
-    public void chatWithClients(BufferedReader reader, String user, ServerThread serverThread){
+    public void chatWithClients(BufferedReader reader, String user, ServerThread serverThread, List<Integer> ports) {
         try {
-            System.out.print("Welcome to the chat room! Message #e to exit.\n");
+            System.out.print("Welcome to the chat room! Message #e to exit, #u to find new clients that may be listening to you.\n");
             boolean isChattingAllowed = true;
 
             while (isChattingAllowed){
@@ -109,12 +99,15 @@ public class ProductionClient {
                 if (msg.equals("#e")){
                     isChattingAllowed = false;
                     System.out.println("Goodbye!");
+                } else if (msg.equals("#u")){
+                    updateClients(reader, user, serverThread,startPort, endPort, false, ports);
                 }
                 else{
-                    serverThread.sendMessage(user + "%--%" + msgToSend);
-                    this.messages.add(user + "%--%" + msgToSend);
-                    // this is to see if it's printing all available ports or not
-                    System.out.println(findAvailablePorts(serverThread));
+                    try {
+                        serverThread.sendMessage(user + "%--%" + msgToSend);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
                 }
             }
             exit(0);
